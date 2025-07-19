@@ -1,4 +1,4 @@
-# Agent IA Multimodal (Spring Boot + OpenAI)
+# Agent IA Multimodal (Spring AI + Spring Boot + OpenAI /ollama )
 
 Ce projet est une **application web basée sur Spring Boot**, **Spring AI** qui propose un **assistant IA multimodal**.  
 L’interface permet :
@@ -6,7 +6,7 @@ L’interface permet :
 - De **poser des questions sur une image** (analyse de documents, factures, etc.).
 - De **générer des images** à partir d’un prompt textuel (DALL·E 3).
 
-<img src="Capture/img6.png">
+<img src="Capture/img.png">
 
 ---
 

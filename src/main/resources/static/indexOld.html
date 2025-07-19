@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Agent IA - Chat Multimodal</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 50px auto;
+      max-width: 700px;
+      background: #f0f4f8;
+      padding: 2rem;
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+    }
+    .chat-box {
+      background: white;
+      padding: 1rem;
+      height: 400px;
+      overflow-y: auto;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 1rem;
+    }
+    .user-msg, .ai-msg {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 10px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+    .user-msg {
+      background-color: #d1e7dd;
+      text-align: right;
+      margin-left: auto;
+    }
+    .ai-msg {
+      background-color: #e2e3e5;
+      text-align: left;
+      margin-right: auto;
+    }
+    input[type="text"], input[type="file"], button {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 0.5rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    label {
+      margin-top: 1rem;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<h1>Agent IA Multimodal</h1>
+
+<div class="chat-box" id="chatHistory"></div>
+
+<input type="text" id="queryInput" placeholder="Posez une question...">
+<label for="imageInput">Image (optionnelle)</label>
+<input type="file" id="imageInput" accept="image/*">
+<button onclick="askLLM()">Envoyer</button>
+
+<hr style="margin: 2rem 0;">
+
+<h2>🎨 Génération d’image</h2>
+<input type="text" id="imagePromptInput" placeholder="Décris une image à générer...">
+<button onclick="generateImage()">Générer une Image</button>
+<div id="generatedImageResult" style="margin-top: 1rem;"></div>
+
+<script>
+  const chatBox = document.getElementById("chatHistory");
+
+  function appendMessage(content, sender) {
+    const messageDiv = document.createElement("div");
+    messageDiv.classList.add(sender === 'user' ? "user-msg" : "ai-msg");
+    messageDiv.textContent = content;
+    chatBox.appendChild(messageDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function askLLM() {
+    const queryInput = document.getElementById("queryInput");
+    const imageInput = document.getElementById("imageInput");
+
+    const question = queryInput.value.trim();
+    const file = imageInput.files[0];
+
+    if (!question) return;
+
+    appendMessage(question, "user");
+    queryInput.value = "";
+    imageInput.value = "";
+
+    if (file) {
+      // Question avec image → POST /askImage
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("question", question);
+
+      fetch("/askImage", {
+        method: "POST",
+        body: formData
+      })
+              .then(response => response.text())
+              .then(data => {
+                appendMessage(data, "ai");
+              })
+              .catch(error => {
+                appendMessage("Erreur avec l'image.", "ai");
+                console.error(error);
+              });
+
+    } else {
+      // Question simple → GET /chat
+      fetch(`/chat?query=${encodeURIComponent(question)}`)
+              .then(response => response.text())
+              .then(data => {
+                appendMessage(data, "ai");
+              })
+              .catch(error => {
+                appendMessage("Erreur avec la requête texte.", "ai");
+                console.error(error);
+              });
+    }
+  }
+
+  function generateImage() {
+    const promptInput = document.getElementById("imagePromptInput");
+    const prompt = promptInput.value.trim();
+    const resultDiv = document.getElementById("generatedImageResult");
+
+    if (!prompt) {
+      resultDiv.innerText = "Veuillez saisir un prompt.";
+      return;
+    }
+
+    // Message dans l'historique
+    appendMessage(`[GÉNÉRATION] ${prompt}`, "user");
+
+    // Affichage "chargement"
+    resultDiv.innerHTML = `<p>⏳ Génération de l'image en cours...</p>`;
+    promptInput.value = "";
+
+    fetch(`/generateImage?promt=${encodeURIComponent(prompt)}`)
+            .then(response => {
+              if (!response.ok) throw new Error("Erreur lors de l'appel backend.");
+              return response.text(); // On attend le lien URL
+            })
+            .then(url => {
+              // Affichage dans le chat
+              appendMessage("Image générée avec succès :", "ai");
+
+              const img = document.createElement("img");
+              img.src = url;
+              img.alt = "Image générée";
+              img.style.maxWidth = "100%";
+              img.style.borderRadius = "10px";
+              chatBox.appendChild(img);
+              chatBox.scrollTop = chatBox.scrollHeight;
+
+              // Affichage dans la section résultat
+              resultDiv.innerHTML = `
+        <p>✅ Image générée :</p>
+        <img src="${url}" alt="Image générée" style="max-width: 100%; border-radius: 10px;">
+        <p><a href="${url}" target="_blank">Ouvrir l’image dans un nouvel onglet</a></p>
+      `;
+            })
+            .catch(error => {
+              resultDiv.innerText = "❌ Erreur lors de la génération de l'image.";
+              console.error("Erreur de génération :", error);
+            });
+  }
+
+</script>
+</body>
+</html>
